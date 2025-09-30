@@ -24,7 +24,6 @@ let adminToken;
 let testUser;
 let testUserToken;
 let otherUser;
-let otherUserToken;
 
 beforeAll(async () => {
   // Create admin user
@@ -52,7 +51,6 @@ beforeAll(async () => {
     password: 'password456'
   };
   const otherUserRes = await request(app).post('/api/auth').send(otherUser);
-  otherUserToken = otherUserRes.body.token;
   otherUser.id = otherUserRes.body.user.id;
 });
 
