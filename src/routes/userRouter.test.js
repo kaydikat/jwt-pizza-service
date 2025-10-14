@@ -233,13 +233,29 @@ describe("updateUser", () => {
   });
 
   test("list users", async () => {
-    const [user, userToken] = await registerUser(request(app));
     const listUsersRes = await request(app)
       .get("/api/user")
-      .set("Authorization", "Bearer " + userToken);
+      .set("Authorization", "Bearer " + adminToken);
     expect(listUsersRes.status).toBe(200);
   });
 
+  test("get users with pagination", async () => {
+    const listUsersRes = await request(app)
+      .get("/api/user?page=0&limit=2")
+      .set("Authorization", "Bearer " + adminToken);
+    expect(listUsersRes.status).toBe(200);
+    expect(listUsersRes.body).toHaveProperty("users");
+    expect(listUsersRes.body).toHaveProperty("more");
+  });
+
+  test("get users with name filter", async () => {
+    const listUsersRes = await request(app)
+      .get(`/api/user?name=${testUser.name}`)
+      .set("Authorization", "Bearer " + adminToken);
+    expect(listUsersRes.status).toBe(200);
+    expect(listUsersRes.body.users.length).toBeGreaterThan(0);
+    expect(listUsersRes.body.users[0].name).toBe(testUser.name);
+  });
   async function registerUser(service) {
     const testUser = {
       name: "pizza diner",
