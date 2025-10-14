@@ -256,6 +256,16 @@ describe("updateUser", () => {
     expect(listUsersRes.body.users.length).toBeGreaterThan(0);
     expect(listUsersRes.body.users[0].name).toBe(testUser.name);
   });
+
+  test("delete user as admin", async () => {
+    const newUser = await registerUser(request(app));
+    const deleteRes = await request(app)
+      .delete(`/api/user/${newUser[0].id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.message).toBe("user deleted");
+  });
+
   async function registerUser(service) {
     const testUser = {
       name: "pizza diner",
