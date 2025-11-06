@@ -39,6 +39,17 @@ function pizzaPurchase(success, latency, price, numPizzas) {
   }
 }
 
+let authSuccesses = 0;
+let authFailures = 0;
+
+function authAttempt(success) {
+  if (success) {
+    authSuccesses++;
+  } else {
+    authFailures++;
+  }
+}
+
 function sendMetricsPeriodically(period = 10000) {
   setInterval(() => {
     const metrics = [];
@@ -66,18 +77,12 @@ function sendMetricsPeriodically(period = 10000) {
     );
 
     // Add purchase metrics (sums)
-    metrics.push(
-      createMetric("pizza_attempts", pizzaAttempts, "1", "sum", "asInt", {})
-    );
-    metrics.push(
-      createMetric("pizza_successes", pizzaSuccesses, "1", "sum", "asInt", {})
-    );
-    metrics.push(
-      createMetric("pizza_failures", pizzaFailures, "1", "sum", "asInt", {})
-    );
-    metrics.push(
-      createMetric("pizza_revenue", pizzaRevenue, "1", "sum", "asDouble", {})
-    );
+    metrics.push(createMetric("pizza_attempts", pizzaAttempts, "1", "sum", "asInt", {}));
+    metrics.push(createMetric("pizza_successes", pizzaSuccesses, "1", "sum", "asInt", {}));
+    metrics.push(createMetric("pizza_failures", pizzaFailures, "1", "sum", "asInt", {}));
+    metrics.push(createMetric("pizza_revenue", pizzaRevenue, "1", "sum", "asDouble", {}));
+    metrics.push(createMetric('auth_successes', authSuccesses, '1', 'sum', 'asInt', {}));
+    metrics.push(createMetric('auth_failures', authFailures, '1', 'sum', 'asInt', {}));
     metrics.push(
       createMetric(
         "pizza_latency_ms",
@@ -171,4 +176,4 @@ function sendMetricToGrafana(metrics) {
     });
 }
 
-module.exports = { requestTracker, pizzaPurchase, sendMetricsPeriodically };
+module.exports = { requestTracker, pizzaPurchase, authAttempt, sendMetricsPeriodically };
