@@ -2,10 +2,24 @@ const os = require("os");
 const config = require("./config");
 
 const requests = {};
+let httpRequestsByMethod = { GET: 0, POST: 0, PUT: 0, DELETE: 0 };
+let totalHttpRequests = 0;
+let requestsLatenciesByMethod = { GET: 0, POST: 0, PUT: 0, DELETE: 0 };
+let totalRequestsLatency = 0;
 
 function requestTracker(req, res, next) {
   const endpoint = `[${req.method}] ${req.path}`;
   requests[endpoint] = (requests[endpoint] || 0) + 1;
+  httpRequestsByMethod[req.method]++;
+  totalHttpRequests++;
+
+    const start = Date.now();
+    res.on('finish', () => {
+        const latency = Date.now() - start;
+        requestsLatenciesByMethod[req.method] += latency;
+        totalRequestsLatency += latency;
+    });
+    
   next();
 }
 
@@ -66,7 +80,6 @@ function sendMetricsPeriodically(period = 10000) {
   setInterval(() => {
     const metrics = [];
 
-    // Add system metrics (gauges, calculated fresh each time)
     metrics.push(
       createMetric(
         "cpu_usage",
@@ -88,7 +101,6 @@ function sendMetricsPeriodically(period = 10000) {
       )
     );
 
-    // Add purchase metrics (sums)
     metrics.push(createMetric("pizza_attempts", pizzaAttempts, "1", "sum", "asInt", {}));
     metrics.push(createMetric("pizza_successes", pizzaSuccesses, "1", "sum", "asInt", {}));
     metrics.push(createMetric("pizza_failures", pizzaFailures, "1", "sum", "asInt", {}));
@@ -96,6 +108,14 @@ function sendMetricsPeriodically(period = 10000) {
     metrics.push(createMetric('auth_successes', authSuccesses, '1', 'sum', 'asInt', {}));
     metrics.push(createMetric('auth_failures', authFailures, '1', 'sum', 'asInt', {}));
     metrics.push(createMetric('active_users', activeUsers, '1', 'gauge', 'asInt', {}));
+    Object.keys(httpRequestsByMethod).forEach((endpoint) => {
+        metrics.push(createMetric('http_requests', httpRequestsByMethod[endpoint], '1', 'sum', 'asInt', { endpoint }));
+    });
+    metrics.push(createMetric('http_requests_all', totalHttpRequests, '1', 'sum', 'asInt', {}));
+    Object.keys(requestsLatenciesByMethod).forEach((endpoint) => {
+        metrics.push(createMetric('request_latency_ms', requestsLatenciesByMethod[endpoint], 'ms', 'sum', 'asInt', { endpoint }));
+    });
+    metrics.push(createMetric('request_latency_ms_all', totalRequestsLatency, 'ms', 'sum', 'asInt', {}));
     metrics.push(
       createMetric(
         "pizza_latency_ms",
