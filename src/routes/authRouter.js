@@ -78,6 +78,7 @@ authRouter.put(
     try {
       const user = await DB.getUser(email, password);
       const auth = await setAuth(user);
+      metrics.userLoggedIn();
       metrics.authAttempt(true);
       res.json({ user: user, token: auth });
     } catch (error) {
@@ -93,6 +94,7 @@ authRouter.delete(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     await clearAuth(req);
+    metrics.userLoggedOut();
     res.json({ message: 'logout successful' });
   })
 );

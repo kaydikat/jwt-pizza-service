@@ -50,6 +50,18 @@ function authAttempt(success) {
   }
 }
 
+let activeUsers = 0;
+
+function userLoggedIn() {
+  activeUsers++;
+}
+
+function userLoggedOut() {
+  if (activeUsers > 0) {
+    activeUsers--;
+  }
+}
+
 function sendMetricsPeriodically(period = 10000) {
   setInterval(() => {
     const metrics = [];
@@ -83,6 +95,7 @@ function sendMetricsPeriodically(period = 10000) {
     metrics.push(createMetric("pizza_revenue", pizzaRevenue, "1", "sum", "asDouble", {}));
     metrics.push(createMetric('auth_successes', authSuccesses, '1', 'sum', 'asInt', {}));
     metrics.push(createMetric('auth_failures', authFailures, '1', 'sum', 'asInt', {}));
+    metrics.push(createMetric('active_users', activeUsers, '1', 'gauge', 'asInt', {}));
     metrics.push(
       createMetric(
         "pizza_latency_ms",
@@ -176,4 +189,4 @@ function sendMetricToGrafana(metrics) {
     });
 }
 
-module.exports = { requestTracker, pizzaPurchase, authAttempt, sendMetricsPeriodically };
+module.exports = { requestTracker, pizzaPurchase, authAttempt, userLoggedIn, userLoggedOut, sendMetricsPeriodically };
