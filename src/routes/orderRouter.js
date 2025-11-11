@@ -102,13 +102,12 @@ orderRouter.post(
 
     const factoryResBody = await r.json();
 
-    logger.log('info', 'factory-res', {
+    // LOG FACTORY RESPONSE (goes into `res` field)
     logger.factoryRes(r.status, factoryResBody, latency);
 
     const numPizzas = order.items.length;
     const totalPrice = order.items.reduce((acc, item) => acc + item.price, 0);
     const success = r.ok;
-
     metrics.pizzaPurchase(success, latency, totalPrice, numPizzas);
 
     if (r.ok) {
