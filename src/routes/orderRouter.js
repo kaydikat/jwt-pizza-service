@@ -4,6 +4,7 @@ const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 const metrics = require('../metrics');
+const logger = require('../logger');
 
 const orderRouter = express.Router();
 
@@ -81,15 +82,30 @@ orderRouter.post(
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
 
+    const factoryReqBody = {
+      diner: { id: req.user.id, name: req.user.name, email: req.user.email },
+      order,
+    };
+    logger.log('info', 'factory-req', { body: factoryReqBody });
     const start = Date.now();
     const r = await fetch(`${config.factory.url}/api/order`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
-      body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${config.factory.apiKey}`,
+      },
+      body: JSON.stringify(factoryReqBody),
     });
     const latency = Date.now() - start;
 
     const j = await r.json();
+    const factoryResBody = await r.json();
+
+    logger.log('info', 'factory-res', {
+      status: r.status,
+      body: factoryResBody,
+      latency,
+    });
 
     const numPizzas = order.items.length;
     const totalPrice = order.items.reduce((acc, item) => acc + item.price, 0);
@@ -98,9 +114,16 @@ orderRouter.post(
     metrics.pizzaPurchase(success, latency, totalPrice, numPizzas);
 
     if (r.ok) {
-      res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
+      res.send({
+        order,
+        followLinkToEndChaos: factoryResBody.reportUrl,
+        jwt: factoryResBody.jwt,
+      });
     } else {
-      res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
+      res.status(500).send({
+        message: 'Failed to fulfill order at factory',
+        followLinkToEndChaos: factoryResBody.reportUrl,
+      });
     }
   })
 );
