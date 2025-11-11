@@ -86,7 +86,9 @@ orderRouter.post(
       diner: { id: req.user.id, name: req.user.name, email: req.user.email },
       order,
     };
-    logger.log('info', 'factory-req', { body: factoryReqBody });
+
+    logger.factoryReq(factoryReqBody);
+
     const start = Date.now();
     const r = await fetch(`${config.factory.url}/api/order`, {
       method: 'POST',
@@ -98,14 +100,10 @@ orderRouter.post(
     });
     const latency = Date.now() - start;
 
-    const j = await r.json();
     const factoryResBody = await r.json();
 
     logger.log('info', 'factory-res', {
-      status: r.status,
-      body: factoryResBody,
-      latency,
-    });
+    logger.factoryRes(r.status, factoryResBody, latency);
 
     const numPizzas = order.items.length;
     const totalPrice = order.items.reduce((acc, item) => acc + item.price, 0);
@@ -122,7 +120,7 @@ orderRouter.post(
     } else {
       res.status(500).send({
         message: 'Failed to fulfill order at factory',
-        followLinkToEndChaos: factoryResBody.reportUrl,
+        followLinkToEndChaos: factoryResBody.reportUrl || 'none',
       });
     }
   })

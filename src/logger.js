@@ -4,35 +4,55 @@ class Logger {
     httpLogger = (req, res, next) => {
     const originalSend = res.send;
     res.send = (resBody) => {
-        const logData = {
+      const logData = {
         method: req.method,
         path: req.originalUrl,
-        statusCode: res.statusCode,
-        authorized: !!req.headers.authorization,
-        reqBody: this.sanitize(JSON.stringify(req.body || {})),
-        resBody: this.sanitize(JSON.stringify(resBody || {})),
-
-        clientIp: req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown',
+        status: res.statusCode,
+        auth: !!req.headers.authorization,
+        req: this.sanitize(JSON.stringify(req.body || {})),
+        res: this.sanitize(JSON.stringify(resBody || {})),
+        ip: req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown',
         host: req.get('host') || req.hostname || 'unknown',
-        };
+      };
 
-        const level = this.statusToLogLevel(res.statusCode);
-        this.log(level, 'http-req', logData);
+      const level = this.statusToLogLevel(res.statusCode);
+      this.log(level, 'http', logData);
 
-        res.send = originalSend;
-        return originalSend.call(res, resBody);
+      res.send = originalSend;
+      return originalSend.call(res, resBody);
     };
     next();
-    };
+  };
 
   log(level, type, logData) {
-    const labels = { component: config.source, level: level, type: type };
-    const values = [this.nowString(), this.sanitize(logData)];
-    const logEvent = { streams: [{ stream: labels, values: [values] }] };
+    let payload = typeof logData === 'string' ? logData : JSON.stringify(logData);
+    payload = this.sanitize(payload);
 
-    this.sendLogToGrafana(logEvent);
+    const labels = { component: config.source, level, type };
+    const values = [[this.nowString(), payload]];
+    const event = { streams: [{ stream: labels, values }] };
+
+    this.sendLogToGrafana(event);
+  }
+  dbQuery(sql, params = []) {
+    this.log('info', 'db', { sql, params });
   }
 
+  factoryReq(body) {
+    this.log('info', 'factory', { req: this.sanitize(JSON.stringify(body)) });
+  }
+
+  factoryRes(status, body, latency) {
+    this.log('info', 'factory', {
+      res: this.sanitize(JSON.stringify(body)),
+      status,
+      latency,
+    });
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // UTILITIES
+  // ──────────────────────────────────────────────────────────────
   statusToLogLevel(statusCode) {
     if (statusCode >= 500) return 'error';
     if (statusCode >= 400) return 'warn';
@@ -40,15 +60,11 @@ class Logger {
   }
 
   nowString() {
-    return (Math.floor(Date.now()) * 1000000).toString();
+    return (Date.now() * 1_000_000).toString();
   }
 
-sanitize(data) {
-    let str = data;
-    if (typeof str !== 'string') {
-      str = JSON.stringify(str);
-    }
-
+  sanitize(data) {
+    let str = typeof data === 'string' ? data : JSON.stringify(data);
     return str
       .replace(/"password"\s*:\s*"[^"]*"/gi, '"password":"*****"')
       .replace(/"token"\s*:\s*"[^"]*"/gi, '"token":"*****"')
@@ -57,22 +73,25 @@ sanitize(data) {
       .replace(/"authorization"\s*:\s*"[^"]*"/gi, '"authorization":"*****"')
       .replace(/"Bearer\s+[a-zA-Z0-9\-_.+/=]*"/gi, '"Bearer *****"')
       .replace(/"email"\s*:\s*"[^"@]+@[^"]+"/gi, '"email":"*****@*****"')
-      .replace(/"id"\s*:\s*\d+/gi, '"id":<redacted>') // optional: hide user IDs
+      .replace(/"id"\s*:\s*\d+/gi, '"id":<redacted>')
       .replace(/"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"/gi, '"<uuid>"');
   }
 
   sendLogToGrafana(event) {
     const body = JSON.stringify(event);
-    fetch(`${config.url}`, {
+    fetch(config.url, {
       method: 'post',
-      body: body,
+      body,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.userId}:${config.apiKey}`,
       },
-    }).then((res) => {
-      if (!res.ok) console.log('Failed to send log to Grafana');
-    });
+    })
+      .then(res => {
+        if (!res.ok) console.error('Failed to send log to Grafana:', res.status, res.statusText);
+      })
+      .catch(err => console.error('Network error sending log:', err.message));
   }
 }
+
 module.exports = new Logger();
