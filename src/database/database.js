@@ -283,6 +283,8 @@ class DB {
       );
       const orderId = orderResult.insertId;
 
+      const newItems = [];
+
       for (const item of order.items) {
         const menuItems = await this.query(
           connection,
@@ -295,15 +297,22 @@ class DB {
         }
 
         const realPrice = menuItems[0].price;
-        const realDescription = menuItems[0].description; 
+        const realDescription = menuItems[0].description;
 
         await this.query(
           connection,
           `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`,
           [orderId, item.menuId, realDescription, realPrice]
         );
+
+        newItems.push({
+          menuId: item.menuId,
+          description: realDescription,
+          price: realPrice,
+        });
       }
-      return { ...order, id: orderId };
+
+      return { ...order, items: newItems, id: orderId };
     } finally {
       connection.end();
     }
