@@ -282,12 +282,25 @@ class DB {
         [user.id, order.franchiseId, order.storeId]
       );
       const orderId = orderResult.insertId;
+
       for (const item of order.items) {
-        const menuId = await this.getID(connection, "id", item.menuId, "menu");
+        const menuItems = await this.query(
+          connection,
+          `SELECT price, description FROM menu WHERE id=?`,
+          [item.menuId]
+        );
+
+        if (menuItems.length === 0) {
+          throw new StatusCodeError(`Unknown menu item: ${item.menuId}`, 400);
+        }
+
+        const realPrice = menuItems[0].price;
+        const realDescription = menuItems[0].description; 
+
         await this.query(
           connection,
           `INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?, ?, ?, ?)`,
-          [orderId, menuId, item.description, item.price]
+          [orderId, item.menuId, realDescription, realPrice]
         );
       }
       return { ...order, id: orderId };
