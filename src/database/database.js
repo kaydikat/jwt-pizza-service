@@ -87,11 +87,15 @@ class DB {
         [email]
       );
       const user = userResult[0];
-      if (
-        !user ||
-        !await bcrypt.compare(password, user.password)
-      ) {
+      
+      if (!user) {
         throw new StatusCodeError("unknown user", 404);
+      }
+
+      if (password !== undefined && password !== null) {
+        if (!(await bcrypt.compare(password, user.password))) {
+          throw new StatusCodeError("unknown user", 404);
+        }
       }
 
       const roleResult = await this.query(
